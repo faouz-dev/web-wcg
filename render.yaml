@@ -1,0 +1,21 @@
+# Offre payante : service Node.js et disque persistant pour les rooms JSON.
+services:
+  - type: web
+    name: wordchain-game
+    runtime: node
+    region: frankfurt
+    plan: 0.5c-512mb
+    numInstances: 1
+    buildCommand: npm ci --include=dev && npm test && npm prune --omit=dev
+    startCommand: npm start
+    healthCheckPath: /healthz
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: ROOMS_FILE
+        value: /var/data/wordchain/rooms.json
+    disk:
+      name: wordchain-rooms
+      mountPath: /var/data
+      sizeGB: 1
