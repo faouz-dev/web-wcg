@@ -1,10 +1,10 @@
-# Offre payante : service Node.js et disque persistant pour les rooms JSON.
+# Render gratuit + PostgreSQL externe (Neon). Pas de disque local nécessaire.
 services:
   - type: web
     name: wordchain-game
     runtime: node
     region: frankfurt
-    plan: 0.5c-512mb
+    plan: free
     numInstances: 1
     buildCommand: npm ci --include=dev && npm test && npm prune --omit=dev
     startCommand: npm start
@@ -13,9 +13,13 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: ROOMS_FILE
-        value: /var/data/wordchain/rooms.json
-    disk:
-      name: wordchain-rooms
-      mountPath: /var/data
-      sizeGB: 1
+      - key: DATABASE_URL
+        sync: false
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: TRUST_PROXY
+        value: "1"
+      - key: GEOIP_API_ENABLED
+        value: "1"

@@ -11,7 +11,7 @@ const emit = (client, event, ...args) => new Promise((resolve, reject) => client
 const alice = { name: 'Alice', token: 'alice-private-token-123456' };
 const bob = { name: 'Bob', token: 'bob-private-token-12345678' };
 async function launch(file, now, chooseLetter = (room, game) => ['a', 'i', 'e', 'e'][Math.min(3, game.history.length)]) {
-  const instance = createGameServer({ dataFile: file, now, chooseLetter });
+  const instance = await createGameServer({ databaseUrl: '', allowLocalStore: true, dataFile: file, now, chooseLetter });
   instance.server.listen(0); await once(instance.server, 'listening');
   const url = `http://localhost:${instance.server.address().port}`;
   const clients = [];

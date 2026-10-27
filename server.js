@@ -5,14 +5,20 @@ const { readFileSync } = require('node:fs');
 const path = require('node:path');
 const { randomBytes, createHash } = require('node:crypto');
 const { createLetterPicker } = require('./lib/letter-picker');
+const { PostgresStore } = require('./lib/postgres-store');
+const { Analytics } = require('./lib/analytics');
+const { mountAdmin } = require('./lib/admin');
 const { RoomStore, ROOM_TTL } = require('./lib/room-store');
 const { TURN_MS, upgradeGame, beginTurn, advanceTurn, reconcilePresence, expireTurn } = require('./lib/turn-rules');
 const normalize = value => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/œ/g, 'oe').replace(/æ/g, 'ae').trim();
-function createGameServer({ dataFile = process.env.ROOMS_FILE || path.join(__dirname, 'data', 'rooms.json'), now = Date.now, chooseLetter } = {}) {
+async function createGameServer({ allowLocalStore = process.env.NODE_ENV !== 'production', databaseUrl = process.env.DATABASE_URL, pool, adminPassword = process.env.ADMIN_PASSWORD, adminUsername = process.env.ADMIN_USERNAME, trustProxy = process.env.TRUST_PROXY === '1', dataFile = process.env.ROOMS_FILE || path.join(__dirname, 'data', 'rooms.json'), now = Date.now, chooseLetter } = {}) {
   const app = express();
   const server = createServer(app);
   const io = new Server(server);
-  const store = new RoomStore(dataFile, now);
+  if (!databaseUrl && !pool && !allowLocalStore) throw new Error('DATABASE_URL est requis en production. Configure la connexion PostgreSQL dans Render.');
+  const store = databaseUrl || pool ? await PostgresStore.open({ connectionString: databaseUrl, pool, now }) : new RoomStore(dataFile, now);
+  const analytics = new Analytics({ pool: store.pool, now, trustProxy });
+  app.set('trust proxy', trustProxy ? 1 : false);
   const rooms = store.rooms;
   const presence = new Map();
   const dictionaries = new Map();
@@ -25,7 +31,9 @@ function createGameServer({ dataFile = process.env.ROOMS_FILE || path.join(__dir
     if (room.game.deadlineAt !== null) room.game.remainingMs = Math.max(0, Math.min(TURN_MS, room.game.deadlineAt - now()));
     room.game.deadlineAt = null;
   }
-  app.get('/healthz', (req, res) => res.json({ status: 'ok' }));
+  try { await store.flush?.(); await analytics.prune(); } catch (error) { await store.close?.().catch(() => {}); throw error; }
+  app.get('/healthz', (req, res) => res.status(store.lastError ? 503 : 200).json({ status: store.lastError ? 'degraded' : 'ok' }));
+  mountAdmin(app, { analytics, store, presence, now, password: adminPassword, username: adminUsername });
   app.use(express.static(path.join(__dirname, 'public')));
   app.get('/room/:code', (req, res) => {
     if (!/^[a-z0-9]{6}$/i.test(req.params.code)) return res.status(404).send('Lien de room invalide.');
@@ -75,6 +83,7 @@ function createGameServer({ dataFile = process.env.ROOMS_FILE || path.join(__dir
     const best = Math.max(...Object.values(game.participants).map(player => player.score));
     const multiplayer = Object.keys(game.participants).length > 1;
     room.games.push({ id: game.id, reason, startedAt: game.startedAt, endedAt: now(), history: game.history, events: game.events, rounds: game.round, results: Object.entries(game.participants).map(([memberId, player]) => ({ memberId, name: player.name, score: player.score, eliminatedAt: player.eliminatedAt ?? null, winner: multiplayer && best > 0 && player.score === best })) });
+    analytics.record('game_ended', { roomCode: room.code, payload: { reason, durationMs: now() - game.startedAt, players: Object.keys(game.participants).length } });
     room.game = null;
   }
   function alignTurn(room) {
@@ -94,12 +103,13 @@ function createGameServer({ dataFile = process.env.ROOMS_FILE || path.join(__dir
     if (members.get(socket.data.memberId) === socket.id) members.delete(socket.data.memberId);
     if (!members.size) presence.delete(room.code);
     socket.leave(room.code); socket.data.code = null;
+    if (analytics.online.has(socket.id)) analytics.online.get(socket.id).roomCode = null;
     touch(room); alignTurn(room); store.save(); broadcast(room);
   }
   function identify(data) {
     const name = String(data?.name || '').trim().slice(0, 20);
-    if (!name) throw new Error('Choisis un pseudo pour jouer.');
-    if (typeof data?.token !== 'string' || !/^[a-zA-Z0-9_-]{20,128}$/.test(data.token)) throw new Error('Identité locale manquante. Recharge la page.');
+    if (!name) throw Object.assign(new Error('Choisis un pseudo pour jouer.'), { code: 'VALIDATION_ERROR' });
+    if (typeof data?.token !== 'string' || !/^[a-zA-Z0-9_-]{20,128}$/.test(data.token)) throw Object.assign(new Error('Identité locale manquante. Recharge la page.'), { code: 'VALIDATION_ERROR' });
     return { name, memberId: createHash('sha256').update(data.token).digest('hex') };
   }
   function enter(socket, room, identity) {
@@ -107,16 +117,26 @@ function createGameServer({ dataFile = process.env.ROOMS_FILE || path.join(__dir
     if (!presence.has(room.code)) presence.set(room.code, new Map());
     online(room).set(identity.memberId, socket.id);
     room.members[identity.memberId] = { id: identity.memberId, name: identity.name };
-    socket.data.memberId = identity.memberId; socket.data.code = room.code; socket.join(room.code);
+    socket.data.memberId = identity.memberId; socket.data.code = room.code;
+    analytics.identify(socket, identity, room.code); socket.join(room.code);
     // Le groupe de participants est fixé au lancement ; les nouveaux observent jusqu’à la partie suivante.
     touch(room); alignTurn(room); store.save(); broadcast(room);
   }
   io.on('connection', socket => {
+    analytics.connect(socket);
     function handle(event, callback) {
-      socket.on(event, (...args) => {
+      socket.on(event, async (...args) => {
         const ack = typeof args.at(-1) === 'function' ? args.pop() : () => {};
-        try { callback(args[0] || {}, ack); }
-        catch (error) { console.error(`[${event}] ${error.message}`); ack({ error: error.code ? 'Sauvegarde indisponible. Réessaie dans un instant.' : error.message }); }
+        let result;
+        try {
+          callback(args[0] || {}, value => { result = value; });
+          if (event !== 'clock:sync') await store.flush?.();
+          if (event === 'game:word' && result?.error) analytics.forSocket(socket, 'word_rejected');
+          ack(result);
+        } catch (error) {
+          if (error.code !== 'VALIDATION_ERROR') { console.error('Échec opération :', event, error.code || error.name); analytics.forSocket(socket, 'error', { category: event }); }
+          ack({ error: error.code === 'VALIDATION_ERROR' ? error.message : 'Opération indisponible. Réessaie dans un instant.' });
+        }
       });
     }
     handle('clock:sync', (data, ack) => ack({ serverTime: now() }));
@@ -125,7 +145,7 @@ function createGameServer({ dataFile = process.env.ROOMS_FILE || path.join(__dir
       let code;
       do { code = randomBytes(3).toString('hex').toUpperCase(); } while (rooms.has(code));
       const room = { code, lang: data.lang === 'en' ? 'en' : 'fr', ownerId: identity.memberId, createdAt: now(), lastPresenceAt: now(), members: {}, game: null, games: [] };
-      rooms.set(code, room); enter(socket, room, identity); ack({ ok: true });
+      rooms.set(code, room); enter(socket, room, identity); analytics.forSocket(socket, 'room_created'); ack({ ok: true });
     });
     handle('room:join', (data, ack) => {
       const identity = identify(data);
@@ -147,6 +167,7 @@ function createGameServer({ dataFile = process.env.ROOMS_FILE || path.join(__dir
       room.game.roundRemaining = [...online(room).keys()];
       beginTurn(room.game, now());
       refreshPrompt(room);
+      analytics.forSocket(socket, 'game_started');
       touch(room); store.save(); ack({ ok: true }); broadcast(room);
     });
     handle('game:end', (data, ack) => {
@@ -172,17 +193,18 @@ function createGameServer({ dataFile = process.env.ROOMS_FILE || path.join(__dir
       if (!dictionary(room.lang, game.letter).has(word)) return ack({ error: 'Ce mot n’est pas dans le dictionnaire.' });
       const memberId = socket.data.memberId;
       game.participants[memberId].score += word.length;
+      analytics.forSocket(socket, 'word_accepted');
       game.history.push({ word, memberId, name: room.members[memberId].name, letter: game.letter, minLength: game.minLength });
       advanceTurn(game, activeIds(room), now(), 'word');
       refreshPrompt(room);
       touch(room); store.save(); ack({ ok: true }); broadcast(room);
     });
     handle('room:leave', (data, ack) => { leave(socket); ack({ ok: true }); });
-    socket.on('disconnect', () => { try { leave(socket); } catch (error) { console.error('Sauvegarde à la déconnexion :', error.message); } });
+    socket.on('disconnect', () => { try { leave(socket); } catch { analytics.forSocket(socket, 'error', { category: 'disconnect' }); } analytics.disconnect(socket); });
   });
   const turnTicker = setInterval(() => {
     try { for (const code of presence.keys()) settleRoom(rooms.get(code)); }
-    catch (error) { console.error('Minuteur :', error.message); }
+    catch (error) { console.error('Erreur minuteur'); analytics.record('error', {payload:{category:'timer'}}); }
   }, 100);
   turnTicker.unref();
   const maintenance = setInterval(() => {
@@ -190,15 +212,19 @@ function createGameServer({ dataFile = process.env.ROOMS_FILE || path.join(__dir
       for (const code of presence.keys()) touch(rooms.get(code));
       store.prune(new Set(presence.keys()));
       if (presence.size) store.save();
-    } catch (error) { console.error('Entretien des rooms :', error.message); }
+    } catch (error) { console.error('Erreur entretien des rooms'); analytics.record('error', {payload:{category:'maintenance'}}); }
   }, 60000);
   maintenance.unref();
-  async function close() { clearInterval(turnTicker); clearInterval(maintenance); await new Promise(resolve => io.close(resolve)); }
-  return { server, io, store, close };
+  const retention = setInterval(() => analytics.prune().catch(() => { analytics.lastError = 'Purge indisponible.'; }), 3600000);
+  retention.unref();
+  async function close() { clearInterval(retention); clearInterval(turnTicker); clearInterval(maintenance); await new Promise(resolve => io.close(resolve)); await analytics.close(); await store.close?.(); }
+  return { server, io, store, analytics, close };
 }
 if (require.main === module) {
-  const instance = createGameServer();
-  instance.server.listen(process.env.PORT || 3000, () => console.log(`Word Chain → http://localhost:${process.env.PORT || 3000}`));
-  for (const signal of ['SIGTERM', 'SIGINT']) process.once(signal, async () => { await instance.close(); process.exit(0); });
+  try { process.loadEnvFile(); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  createGameServer().then(instance => {
+    instance.server.listen(process.env.PORT || 3000, '0.0.0.0', () => console.log('Word Chain démarré sur le port ' + (process.env.PORT || 3000)));
+    for (const signal of ['SIGTERM', 'SIGINT']) process.once(signal, async () => { try { await instance.close(); process.exit(0); } catch { process.exit(1); } });
+  }).catch(() => { console.error('Démarrage impossible : vérifie DATABASE_URL, PostgreSQL et la configuration du serveur.'); process.exitCode = 1; });
 }
 module.exports = { createGameServer };

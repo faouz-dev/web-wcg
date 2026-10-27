@@ -1,4 +1,3 @@
-const socket = io();
 const $ = selector => document.querySelector(selector);
 let currentRoom, pendingAction, toastTimer, reconnectCode;
 let playerToken;
@@ -13,6 +12,7 @@ if (!playerToken || !/^[a-zA-Z0-9_-]{20,128}$/.test(playerToken)) {
 }
 let savedName = '';
 try { savedName = (localStorage.getItem('wordchain-name') || '').trim().slice(0, 20); } catch {}
+const socket = io({ auth: { token: playerToken } });
 function toast(message) { $('#toast').textContent = message; $('#toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => $('#toast').hidden = true, 4500); }
 function resetHome() {
   renderRecent(); pendingAction = null; $('#choice').hidden = false; $('#setup').hidden = true;
