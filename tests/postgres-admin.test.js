@@ -39,6 +39,8 @@ test('Géolocalisation : proxy uniquement si configuré, pays inconnu explicite 
   analytics.connect({ id: 'socket1', handshake: { auth: {token:'private-identity-token-123456'} }, request });
   assert.equal(JSON.stringify(analytics.events).includes('127.0.0.1'), false);
   assert.equal(JSON.stringify(analytics.events).includes('private-identity-token'), false);
+  assert.equal(analytics.online.get('socket1').ipScope, 'local');
+  assert.equal(analytics.events[0].payload.ipScope, 'local');
 });
 test('Statistiques PostgreSQL : navigateurs uniques, pays, noms, graphiques et purge 30 jours', async () => {
   const { pool } = database(); const time = Date.UTC(2026,9,27,12);

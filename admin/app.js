@@ -2,7 +2,7 @@ const $ = selector => document.querySelector(selector);
 const fmt = value => new Intl.NumberFormat('fr-FR').format(value || 0);
 const date = value => new Date(value).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
 const countryNames = new Intl.DisplayNames(['fr'], { type: 'region' });
-const country = code => code === 'ZZ' ? 'Pays inconnu' : countryNames.of(code) || code;
+const country = (code, ipScope) => code === 'ZZ' ? ipScope === 'local' ? 'Connexion locale' : 'Pays inconnu' : countryNames.of(code) || code;
 const duration = ms => ms >= 3600000 ? (ms / 3600000).toFixed(1) + ' h' : Math.round(ms / 60000) + ' min';
 let loading = false;
 async function api(url, options = {}) {
@@ -72,10 +72,10 @@ async function refresh() {
     table('#daily-data',['Jour UTC','Connexions','Parties','Erreurs'],data.daily.map(item => [item.day,item.connections,item.games,item.errors]),'Aucune donnée.');
     countryBars(data.countries);
     $('#online-count').textContent = data.online.length + ' sessions';
-    table('#online-table',['Joueur / visiteur','Pays estimé','Room','Connecté depuis'],data.online.map(item => [item.name || 'Visiteur #' + item.visitorId,country(item.country),item.roomCode || 'Accueil',date(item.connectedAt)]),'Personne n’est connecté pour le moment.');
+    table('#online-table',['Joueur / visiteur','Pays estimé','Room','Connecté depuis'],data.online.map(item => [item.name || 'Visiteur #' + item.visitorId,country(item.country,item.ipScope),item.roomCode || 'Accueil',date(item.connectedAt)]),'Personne n’est connecté pour le moment.');
     $('#room-count').textContent = data.rooms.length + ' conservées';
     table('#rooms-table',['Room','Langue','Statut','Connectés','Parties terminées','Dernière présence'],data.rooms.map(item => [item.code,item.lang.toUpperCase(),item.playing ? 'Partie en cours / pause' : 'Salon',item.connected + '/8',item.games,date(item.lastPresenceAt)]),'Aucune room conservée.');
-    table('#connections-table',['Date','Joueur / visiteur','Pays estimé'],data.recent.map(item => [date(item.at),item.name || 'Visiteur #' + item.visitorId,country(item.country)]),'Aucune connexion enregistrée sur cette période.');
+    table('#connections-table',['Date','Joueur / visiteur','Pays estimé'],data.recent.map(item => [date(item.at),item.name || 'Visiteur #' + item.visitorId,country(item.country,item.ipScope)]),'Aucune connexion enregistrée sur cette période.');
     $('#recent-errors').replaceChildren(); data.recentErrors.slice(0,5).forEach(item => { const p = document.createElement('p'); p.className = 'error-item'; p.textContent = date(item.at) + ' · ' + item.category; $('#recent-errors').append(p); });
     $('#system-storage').textContent = data.system.storage === 'postgres' ? 'PostgreSQL · persistant' : 'JSON local · développement';
     $('#system-uptime').textContent = duration(data.system.uptimeSeconds*1000); $('#system-memory').textContent = data.system.memoryMb + ' Mo'; $('#system-duration').textContent = duration(data.totals.averageSessionMs);
