@@ -33,7 +33,7 @@ test('PostgreSQL : une écriture échouée est signalée et peut être retentée
 });
 test('Géolocalisation : proxy uniquement si configuré, pays inconnu explicite et IP non persistée', () => {
   const request = { headers: { 'x-forwarded-for': '1.1.1.1, 8.8.8.8' }, socket: { remoteAddress: '::ffff:127.0.0.1' } };
-  assert.equal(clientIp(request, false), '127.0.0.1'); assert.equal(clientIp(request, true), '8.8.8.8');
+  assert.equal(clientIp(request, false), '127.0.0.1'); assert.equal(clientIp(request, true), '1.1.1.1');
   assert.equal(countryFor({ headers: {}, socket: { remoteAddress: '127.0.0.1' } }), 'ZZ');
   const analytics = new Analytics({ now: () => 1000 });
   analytics.connect({ id: 'socket1', handshake: { auth: {token:'private-identity-token-123456'} }, request });

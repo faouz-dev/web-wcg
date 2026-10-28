@@ -6,12 +6,12 @@ const path = require('node:path');
 const { randomBytes, createHash } = require('node:crypto');
 const { createLetterPicker } = require('./lib/letter-picker');
 const { PostgresStore } = require('./lib/postgres-store');
-const { Analytics } = require('./lib/analytics');
+const { Analytics, proxyEnabled } = require('./lib/analytics');
 const { mountAdmin } = require('./lib/admin');
 const { RoomStore, ROOM_TTL } = require('./lib/room-store');
 const { TURN_MS, upgradeGame, beginTurn, advanceTurn, reconcilePresence, expireTurn } = require('./lib/turn-rules');
 const normalize = value => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/œ/g, 'oe').replace(/æ/g, 'ae').trim();
-async function createGameServer({ allowLocalStore = process.env.NODE_ENV !== 'production', databaseUrl = process.env.DATABASE_URL, pool, adminPassword = process.env.ADMIN_PASSWORD, adminUsername = process.env.ADMIN_USERNAME, trustProxy = process.env.TRUST_PROXY === '1', dataFile = process.env.ROOMS_FILE || path.join(__dirname, 'data', 'rooms.json'), now = Date.now, chooseLetter } = {}) {
+async function createGameServer({ allowLocalStore = process.env.NODE_ENV !== 'production', databaseUrl = process.env.DATABASE_URL, pool, adminPassword = process.env.ADMIN_PASSWORD, adminUsername = process.env.ADMIN_USERNAME, trustProxy = proxyEnabled(), dataFile = process.env.ROOMS_FILE || path.join(__dirname, 'data', 'rooms.json'), now = Date.now, chooseLetter } = {}) {
   const app = express();
   const server = createServer(app);
   const io = new Server(server);

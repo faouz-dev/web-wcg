@@ -2,7 +2,7 @@ const $ = selector => document.querySelector(selector);
 const fmt = value => new Intl.NumberFormat('fr-FR').format(value || 0);
 const date = value => new Date(value).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
 const countryNames = new Intl.DisplayNames(['fr'], { type: 'region' });
-const country = (code, ipScope) => code === 'ZZ' ? ipScope === 'local' ? 'Connexion locale' : 'Pays inconnu' : countryNames.of(code) || code;
+const country = (code, ipScope) => code === 'ZZ' ? ipScope === 'local' ? 'Adresse non publique' : ipScope === 'proxy' ? 'IP visiteur indisponible' : 'Pays inconnu' : countryNames.of(code) || code;
 const duration = ms => ms >= 3600000 ? (ms / 3600000).toFixed(1) + ' h' : Math.round(ms / 60000) + ' min';
 let loading = false;
 async function api(url, options = {}) {
@@ -71,6 +71,7 @@ async function refresh() {
     chart('#connections-chart',data.daily,'connections','Connexions par jour'); chart('#games-chart',data.daily,'games','Parties terminées par jour'); chart('#errors-chart',data.daily,'errors','Erreurs serveur par jour');
     table('#daily-data',['Jour UTC','Connexions','Parties','Erreurs'],data.daily.map(item => [item.day,item.connections,item.games,item.errors]),'Aucune donnée.');
     countryBars(data.countries);
+    $('#geolocation-status').textContent = `Proxy ${data.system.proxyEnabled ? 'actif' : 'inactif'} · API ${data.system.geoApiEnabled ? 'active' : 'inactive'} · ${data.system.publicIpConnections} IP publiques / ${data.system.nonPublicIpConnections} non publiques en ligne.`;
     $('#online-count').textContent = data.online.length + ' sessions';
     table('#online-table',['Joueur / visiteur','Pays estimé','Room','Connecté depuis'],data.online.map(item => [item.name || 'Visiteur #' + item.visitorId,country(item.country,item.ipScope),item.roomCode || 'Accueil',date(item.connectedAt)]),'Personne n’est connecté pour le moment.');
     $('#room-count').textContent = data.rooms.length + ' conservées';
