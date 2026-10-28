@@ -8,6 +8,7 @@ const { createLetterPicker } = require('./lib/letter-picker');
 const { PostgresStore } = require('./lib/postgres-store');
 const { Analytics, proxyEnabled } = require('./lib/analytics');
 const { mountAdmin } = require('./lib/admin');
+const { createVoice } = require('./lib/voice');
 const { RoomStore, ROOM_TTL } = require('./lib/room-store');
 const {
   TURN_MS,
@@ -35,6 +36,7 @@ async function createGameServer({
   dataFile = process.env.ROOMS_FILE || path.join(__dirname, 'data', 'rooms.json'),
   now = Date.now,
   chooseLetter,
+  voiceEnv = process.env,
 } = {}) {
   const app = express();
   const server = createServer(app);
@@ -94,6 +96,7 @@ async function createGameServer({
     );
   const hostId = (room) =>
     online(room).get(room.ownerId) || online(room).values().next().value || null;
+  const voice = createVoice({ io, rooms, presence, hostId, store, env: voiceEnv });
   function touch(room) {
     room.lastPresenceAt = now();
   }
@@ -186,6 +189,7 @@ async function createGameServer({
   }
   function broadcast(room) {
     io.to(room.code).emit('room:state', snapshot(room));
+    voice.broadcast(room.code);
   }
   function refreshPrompt(room) {
     const game = room.game;
@@ -249,6 +253,7 @@ async function createGameServer({
   function leave(socket) {
     const room = rooms.get(socket.data.code);
     if (!room) return;
+    voice.leave(socket);
     settleRoom(room);
     const members = online(room);
     if (members.get(socket.data.memberId) === socket.id) members.delete(socket.data.memberId);
@@ -290,6 +295,7 @@ async function createGameServer({
   }
   io.on('connection', (socket) => {
     analytics.connect(socket);
+    voice.attach(socket);
     function handle(event, callback) {
       socket.on(event, async (...args) => {
         const ack = typeof args.at(-1) === 'function' ? args.pop() : () => {};

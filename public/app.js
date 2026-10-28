@@ -31,6 +31,7 @@ try {
   savedName = (localStorage.getItem('wordchain-name') || '').trim().slice(0, 20);
 } catch {}
 const socket = io({ auth: { token: playerToken } });
+const voice = new VoiceChat({ socket, onChange: renderVoice, onError: toast });
 function toast(message) {
   $('#toast').textContent = message;
   $('#toast').hidden = false;
@@ -126,6 +127,7 @@ $('#join-form input[name=code]').oninput = (event) => {
   event.target.value = event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
 };
 $('#leave').onclick = () => {
+  voice.leave();
   socket.emit('room:leave');
   soundEvents.reset();
   gameSounds.stop();
@@ -158,6 +160,7 @@ $('#word-form').onsubmit = (event) => {
   send('game:word', { word: $('#word').value, turnId: currentRoom?.turnId }, event.target);
 };
 socket.on('room:state', (room) => {
+  voice.setRoom(room);
   soundEvents.onState(room, socket.id);
   const justEnded = currentRoom?.started && !room.started;
   if (justEnded) selectTab('stats');
@@ -231,6 +234,9 @@ socket.on('room:state', (room) => {
     $('#word').focus();
 });
 socket.on('disconnect', () => {
+  voice.leave(false);
+  voice.participants = [];
+  renderVoice();
   soundEvents.reset();
   gameSounds.stop();
   if (currentRoom) {
@@ -547,3 +553,99 @@ document.addEventListener('keydown', () => {
   gameSounds.unlock();
 });
 renderSoundControls();
+
+function renderVoice() {
+  const busy = voice.pending;
+  $('#voice-join').hidden = $('#voice-listen').hidden = voice.active;
+  $('#voice-join').disabled = $('#voice-listen').disabled =
+    busy || !voice.available || !socket.connected;
+  $('#voice-join').textContent = busy ? 'Connexion…' : 'Activer mon micro';
+  const self = voice.participants.find((peer) => peer.id === socket.id);
+  const voiceStatus = !voice.available
+    ? 'Vocal disponible en HTTPS ou sur localhost'
+    : voice.status ||
+      (voice.active
+        ? self?.hostMuted
+          ? 'Micro coupé par l’hôte'
+          : voice.muted
+            ? 'Tu écoutes · micro coupé'
+            : 'Ton micro est actif'
+        : 'Pour papoter entre amis');
+  if ($('#voice-status').textContent !== voiceStatus) $('#voice-status').textContent = voiceStatus;
+  for (const action of ['mute', 'deafen']) $('#voice-' + action).hidden = !voice.active;
+  $('#voice-leave').hidden = !voice.active && !voice.pending;
+  $('#voice-leave').textContent = voice.pending ? 'Annuler' : 'Quitter le vocal';
+  $('#voice-mute').disabled = Boolean(self?.hostMuted) || voice.micPending;
+  $('#voice-mute').textContent = voice.muted ? 'Activer mon micro' : 'Couper mon micro';
+  $('#voice-mute').setAttribute('aria-pressed', String(voice.muted));
+  $('#voice-deafen').textContent = voice.deafened ? 'Rétablir l’écoute' : 'Couper l’écoute';
+  $('#voice-deafen').setAttribute('aria-pressed', String(voice.deafened));
+  $('#voice-playback').hidden = !voice.active || !voice.playbackBlocked;
+  $('#voice-network').hidden = !voice.active || voice.relayAvailable;
+  const list = $('#voice-members');
+  // La mesure de parole ne remplace pas les boutons : le focus clavier reste stable.
+  const signature = JSON.stringify([
+    voice.host,
+    voice.active,
+    voice.participants,
+    [...voice.blocked],
+  ]);
+  if (list.voiceSignature !== signature) {
+    list.voiceSignature = signature;
+    list.replaceChildren();
+    voice.participants.forEach((peer) => {
+      const row = document.createElement('div');
+      row.className = 'voice-member';
+      row.dataset.peerId = peer.id;
+      const dot = document.createElement('span');
+      dot.className = 'voice-dot';
+      dot.setAttribute('aria-hidden', 'true');
+      const name = document.createElement('span');
+      name.className = 'voice-name';
+      name.textContent =
+        peer.name +
+        (peer.id === socket.id ? ' · toi' : '') +
+        (peer.hostMuted ? ' · coupé par l’hôte' : peer.muted ? ' · micro coupé' : '');
+      row.append(dot, name);
+      if (peer.id !== socket.id && voice.active) {
+        const block = document.createElement('button');
+        block.type = 'button';
+        block.textContent = voice.blocked.has(peer.memberId) ? 'Réécouter' : 'Ne plus entendre';
+        block.setAttribute('aria-label', block.textContent + ' ' + peer.name);
+        block.setAttribute('aria-pressed', String(voice.blocked.has(peer.memberId)));
+        block.onclick = () => voice.toggleBlock(peer.memberId);
+        row.append(block);
+      }
+      if (peer.id !== socket.id && voice.host === socket.id) {
+        const moderate = document.createElement('button');
+        moderate.type = 'button';
+        moderate.className = 'voice-moderate';
+        moderate.textContent = peer.hostMuted ? 'Autoriser le micro' : 'Couper pour tous';
+        moderate.setAttribute('aria-label', moderate.textContent + ' : ' + peer.name);
+        moderate.onclick = () => voice.moderate(peer.memberId, !peer.hostMuted);
+        row.append(moderate);
+      }
+      list.append(row);
+    });
+  }
+  for (const row of list.children) {
+    const id = row.dataset.peerId;
+    const peer = voice.peers.get(id);
+    row.classList.toggle(
+      'speaking',
+      voice.active && (id === socket.id ? voice.speaking : Boolean(peer?.speaking)),
+    );
+    row.classList.toggle(
+      'voice-connecting',
+      Boolean(peer && peer.pc.connectionState !== 'connected'),
+    );
+  }
+}
+$('#voice-join').onclick = () => voice.join();
+$('#voice-listen').onclick = () => voice.join(true);
+$('#voice-mute').onclick = () => voice.toggleMute();
+$('#voice-deafen').onclick = () => voice.toggleDeafen();
+$('#voice-leave').onclick = () => voice.leave();
+$('#voice-playback').onclick = () => voice.unlockPlayback();
+globalThis.addEventListener('pagehide', () => voice.leave());
+renderVoice();

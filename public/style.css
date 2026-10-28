@@ -1023,3 +1023,133 @@ td:first-child {
     font-size: 9px;
   }
 }
+
+/* Discussion vocale */
+.voice-panel {
+  margin: 0 0 24px;
+  padding: 16px 18px;
+  border: 1px solid #dce3ee;
+  background: #fff;
+  border-radius: 16px;
+}
+.voice-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.voice-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.voice-heading strong {
+  font-size: 14px;
+  color: #334466;
+}
+.voice-heading span,
+.voice-privacy,
+.voice-network {
+  font-size: 12px;
+  color: #74819a;
+}
+.voice-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.voice-panel button {
+  padding: 8px 11px;
+  border: 1px solid #dce3ee;
+  border-radius: 9px;
+  background: #f5f7fb;
+  color: #415174;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.voice-panel button:hover {
+  background: #eaf0f8;
+}
+.voice-panel button.voice-primary {
+  background: #354d7a;
+  color: white;
+  border-color: #354d7a;
+}
+.voice-panel button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.voice-panel button:focus-visible {
+  outline: 3px solid #7f9ac4;
+  outline-offset: 2px;
+}
+.voice-panel [hidden] {
+  display: none !important;
+}
+.voice-members {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.voice-member {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  border: 1px solid #e5eaf2;
+  border-radius: 11px;
+  padding: 7px 9px;
+  background: #fafbfd;
+  font-size: 12px;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+.voice-member button {
+  padding: 4px 7px;
+  font-size: 11px;
+}
+.voice-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #b6bfd1;
+  flex-shrink: 0;
+}
+.voice-member.speaking {
+  border-color: #82ae99;
+  background: #eff7f2;
+}
+.voice-member.speaking .voice-dot {
+  background: #438365;
+  box-shadow: 0 0 0 3px #dceee3;
+}
+.voice-member.voice-connecting .voice-dot {
+  background: #c29a5d;
+}
+.voice-privacy {
+  display: block;
+  margin-top: 10px;
+  line-height: 1.5;
+}
+.voice-network {
+  color: #987243;
+  margin: 10px 0 0;
+}
+@media (max-width: 600px) {
+  .voice-panel {
+    padding: 13px;
+  }
+  .voice-actions {
+    width: 100%;
+  }
+  .voice-member {
+    width: 100%;
+  }
+  .voice-name {
+    flex: 1;
+  }
+}

@@ -119,3 +119,25 @@ Les ticks ne concernent que le joueur actif, un seul à chaque seuil. Les mises 
 ## Formatage
 
 Prettier est installé comme dépendance de développement avec une version exacte. `npm run format` formate le projet et `npm run format:check` vérifie son formatage. Les dictionnaires, les données locales, les fichiers d’environnement et les fichiers générés sont exclus via `.prettierignore`.
+
+## Discussion vocale WebRTC
+
+Le micro reste facultatif : « Activer mon micro » ou « Écouter ». Chaque navigateur ouvre au plus sept connexions audio pour une room de huit. Socket.IO transporte uniquement la signalisation et les commandes. Le mute de l’hôte est conservé par identité dans la room ; tous les clients coupent la voix ciblée, et lever le mute ne rallume jamais automatiquement son micro. Le blocage personnel et l’écoute coupée restent locaux. Le navigateur arrête le micro à la sortie du vocal/de la room et à la perte de connexion au serveur. Aucun enregistrement audio.
+
+### Configuration sur Render
+
+HTTPS est obligatoire hors localhost. Render héberge la signalisation existante, pas le relais UDP. Ajouter dans Environment :
+
+- `WEBRTC_STUN_URLS` : `stun:stun.l.google.com:19302` (défaut).
+- `TURN_URLS` : URLs fournies par un service TURN ou votre Coturn, par exemple `turn:turn.example.com:3478?transport=udp,turn:turn.example.com:3478?transport=tcp,turns:turn.example.com:5349?transport=tcp`.
+- `TURN_SHARED_SECRET` : secret Coturn `static-auth-secret` avec `use-auth-secret`. Le serveur génère des identifiants temporaires HMAC valables une heure et le client les renouvelle ; le secret reste sur le serveur.
+- Alternative pour un fournisseur acceptant des identifiants fixes : `TURN_USERNAME` et `TURN_CREDENTIAL`, en laissant `TURN_SHARED_SECRET` vide. Ces identifiants seront transmis aux participants du vocal ; préférer des identifiants temporaires.
+- `WEBRTC_RELAY_ONLY=1` force l’audio via TURN pour éviter l’échange des IP publiques entre participants. Sans TURN configuré, ce mode refuse l’ouverture du vocal.
+
+Le STUN seul permet des connexions directes mais ne suffit pas sur certains réseaux mobiles, d’entreprise ou derrière des NAT restrictifs. Ne pas exposer un relais TURN sans authentification. Les clés TURN ne vont jamais dans `public/` ni dans Git. Les variables vides de `.env.example` sont à renseigner localement ou dans Render ; aucun service TURN n’est créé automatiquement.
+
+### Vérification avant utilisation publique
+
+Ouvrir deux navigateurs avec des identités distinctes dans la même room, autoriser le micro et vérifier la parole dans les deux sens (casques conseillés). Tester écoute seule, mute personnel, blocage individuel, mute par l’hôte, changement d’hôte, sortie de room et reconnexion. Tester ensuite sur deux réseaux distincts (Wi-Fi/mobile) avec `WEBRTC_RELAY_ONLY=1` pour vérifier réellement les identifiants, le certificat et les ports du relais. `chrome://webrtc-internals` ou `about:webrtc` permet de confirmer une paire ICE de type `relay`. Les tests automatisés couvrent les permissions, la signalisation et le cycle de vie mais ne remplacent pas ce test audio réel.
+
+Test WebRTC dans de vrais navigateurs, avec des micros simulés : `npm run test:voice:browser`. Il faut Chrome ou Edge installé (chemin personnalisable avec `VOICE_BROWSER_PATH`). Ce test vérifie les paquets audio bidirectionnels, une room à trois avec spectateur, l’activation depuis l’écoute seule, les différents mutes, la reconnexion et la reprise de modération par le membre présent depuis le plus longtemps. Il est distinct de `npm test` pour que le build Render ne dépende pas d’un navigateur.

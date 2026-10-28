@@ -117,6 +117,29 @@
           </p>
           <p class="room-lifetime">Conservée 7 jours après la dernière présence.</p>
         </div>
+        <section class="voice-panel" aria-label="Discussion vocale">
+          <div class="voice-toolbar">
+            <div class="voice-heading">
+              <strong>♫ Le vocal</strong
+              ><span id="voice-status" role="status">Pour papoter entre amis</span>
+            </div>
+            <div class="voice-actions">
+              <button id="voice-join" type="button" class="voice-primary">Activer mon micro</button>
+              <button id="voice-listen" type="button">Écouter</button>
+              <button id="voice-mute" type="button" hidden>Couper mon micro</button>
+              <button id="voice-deafen" type="button" hidden>Couper l’écoute</button>
+              <button id="voice-playback" type="button" hidden>Autoriser l’audio</button>
+              <button id="voice-leave" type="button" hidden>Quitter le vocal</button>
+            </div>
+          </div>
+          <div id="voice-members" class="voice-members"></div>
+          <p id="voice-network" class="voice-network" hidden>
+            Certains réseaux peuvent bloquer l’audio. Le relais vocal n’est pas configuré.
+          </p>
+          <small class="voice-privacy"
+            >Vocal facultatif · Aucun enregistrement · Un casque évite les échos.</small
+          >
+        </section>
         <div class="room-tabs" role="tablist" aria-label="Vue de la room">
           <button id="tab-play" role="tab" aria-selected="true" aria-controls="panel-play">
             Jouer</button
@@ -225,6 +248,7 @@
     <script src="/socket.io/socket.io.js"></script>
     <script src="/clock.js"></script>
     <script src="/sounds.js"></script>
+    <script src="/voice.js"></script>
     <script src="/app.js"></script>
   </body>
 </html>

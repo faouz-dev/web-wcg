@@ -12,6 +12,7 @@ function browser(initialName, pathname = '/', search = '') {
         textContent: '',
         children: [],
         style: { setProperty() {} },
+        dataset: {},
         classList: { toggle() {} },
         focus() {},
         setAttribute() {},
@@ -46,6 +47,8 @@ function browser(initialName, pathname = '/', search = '') {
   const context = {
     GameSounds: require('../public/sounds').GameSounds,
     GameSoundEvents: require('../public/sounds').GameSoundEvents,
+    VoiceChat: require('../public/voice').VoiceChat,
+    addEventListener() {},
     GameClock: require('../public/clock').GameClock,
     performance,
     setInterval: () => 0,
