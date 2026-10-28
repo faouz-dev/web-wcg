@@ -1,0 +1,9 @@
+node_modules/
+data/
+wordList/
+.git/
+.env
+.env.*
+package-lock.json
+dist/
+coverage/

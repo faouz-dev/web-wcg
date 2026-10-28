@@ -1,21 +1,230 @@
 <!doctype html>
 <html lang="fr">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#f3f5f9"><meta name="description" content="Word Chain, le jeu de mots entre amis."><title>Word Chain — Jouons ensemble</title><link rel="stylesheet" href="/style.css"></head>
-<body>
-<header class="site-header"><a class="brand" href="/" aria-label="Word Chain accueil"><span class="brand-icon">w</span>wordchain<span class="brand-dot">.</span></a><span class="header-tag">Le jeu de mots entre amis</span></header>
-<main>
-<section id="home">
-<div id="choice" class="welcome">
-<div class="letter-stack" aria-hidden="true"><span>W</span><span>C</span><i>✦</i></div>
-<p class="eyebrow">LES MOTS SONT À VOUS</p><h1>On fait une partie<span> ?</span></h1>
-<p class="welcome-caption">Invite ta bande. Trouve les bons mots.</p>
-<div class="choices"><button class="choice-button create-choice" id="choose-create"><span class="choice-symbol">＋</span><span>Créer une room</span><span class="choice-arrow">↗</span></button><button class="choice-button" id="choose-join"><span class="choice-symbol">↳</span><span>Rejoindre une room</span><span class="choice-arrow">→</span></button></div>
-<span class="player-hint">1–8 joueurs · Sans inscription</span><div id="recent-rooms" class="recent-rooms" hidden><h2>Retrouver une room</h2><div id="recent-list"></div></div>
-</div>
-<section id="setup" class="setup" hidden aria-labelledby="setup-title"><button id="setup-back" class="text-button">← Retour</button><div class="setup-card"><span id="setup-icon" class="setup-icon" aria-hidden="true">＋</span><h1 id="setup-title">Créer une room</h1>
-<form id="nickname-form" hidden><label for="nickname">Ton pseudo<input id="nickname" name="name" maxlength="20" placeholder="Ton pseudo" required autocomplete="nickname"></label><button class="primary" type="submit">Continuer <span>→</span></button></form><div id="identity" class="identity" hidden><span>Tu joues en tant que <strong id="saved-name"></strong></span><button id="edit-name" class="text-button" type="button">Modifier</button></div><form id="create-form" hidden><label>Langue du jeu<select name="lang"><option value="fr">Français</option><option value="en">English</option></select></label><button class="primary" type="submit">Créer la room <span>↗</span></button></form>
-<form id="join-form" hidden><label>Code de la room<input class="code-input" name="code" placeholder="A1B2C3" maxlength="6" minlength="6" required autocomplete="off" spellcheck="false"></label><button class="primary" type="submit">Rejoindre la room <span>→</span></button></form>
-</div></section>
-</section><section id="room" hidden><button id="leave" class="text-button">← Quitter la room</button><div class="room-heading"><div class="eyebrow">LA BANDE EST RÉUNIE</div><h1>Place aux mots<span class="brand-dot">.</span></h1><p>Room <button id="copy-code" class="code-chip" title="Copier le code"></button> <span id="room-language"></span> <button id="copy-link" class="share-button" type="button">↗ Copier le lien de la room</button></p><p class="room-lifetime">Conservée 7 jours après la dernière présence.</p></div><div class="room-tabs" role="tablist" aria-label="Vue de la room"><button id="tab-play" role="tab" aria-selected="true" aria-controls="panel-play">Jouer</button><button id="tab-stats" role="tab" aria-selected="false" aria-controls="panel-stats" tabindex="-1">Classement & historique</button></div><div id="panel-play" role="tabpanel" aria-labelledby="tab-play"><div class="room-layout"><aside class="play-card"><h3><span id="sidebar-title">La bande</span> <span id="player-count"></span></h3><div id="players"></div><div id="spectators-section" hidden><h4 class="spectators-title">Spectateurs · prochaine partie</h4><div id="spectators"></div></div></aside><div class="play-card game-card"><div id="waiting"><span class="waiting-flower">✿</span><h2 id="waiting-title">Ta room est prête.</h2><p>Partage le code pour inviter tes amis, ou joue en solo.</p><button id="start" class="primary">C’est parti ! →</button><p id="host-note"></p></div><div id="game" hidden><div class="game-status"><span id="round-label" class="round-badge"></span><div id="turn-timer" class="turn-timer" role="timer" aria-live="off" aria-label="Temps restant"><span id="seconds-left">15</span><small>sec</small></div></div><div class="turn-line" aria-live="polite"><div class="eyebrow turn-current" id="turn-label"></div><div class="turn-next" id="next-turn-label"></div></div><div class="letter-display" id="letter"></div><p id="word-prompt" class="word-prompt"></p><p id="turn-event" class="turn-event" role="status"></p><p id="spectator-note" class="spectator-note" role="status" hidden></p><form id="word-form" hidden><label class="sr-only" for="word">Ton mot</label><div class="word-row"><input id="word" name="word" placeholder="À toi de trouver…" maxlength="40" required autocomplete="off"><button class="primary" type="submit">Jouer →</button></div></form><button id="end-game" class="text-button" hidden>Terminer la partie</button><h4>La chaîne de mots</h4><div id="history" class="history"></div></div></div></div></div><section id="panel-stats" role="tabpanel" aria-labelledby="tab-stats" hidden><div class="stats-heading"><h2>Le classement de la room</h2><span id="games-total"></span></div><p class="stats-note">Scores des parties terminées. Les parties solo comptent pour les points, les victoires se jouent à plusieurs.</p><div class="table-scroll"><table><thead><tr><th>Joueur</th><th>Points</th><th>Parties</th><th>Victoires</th><th>Record</th></tr></thead><tbody id="rankings"></tbody></table></div><h2 class="history-title">Les parties précédentes</h2><div id="past-games"></div></section></section></main><footer><span>wordchain.</span><span>À plusieurs, c’est meilleur. · <a href="/privacy.html">Confidentialité</a></span></footer>
-<div id="toast" role="status" aria-live="polite" hidden></div>
-<script src="/socket.io/socket.io.js"></script><script src="/clock.js"></script><script src="/app.js"></script></body></html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#f3f5f9" />
+    <meta name="description" content="Word Chain, le jeu de mots entre amis." />
+    <title>Word Chain — Jouons ensemble</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="Word Chain accueil"
+        ><span class="brand-icon">w</span>wordchain<span class="brand-dot">.</span></a
+      >
+      <div class="header-actions">
+        <span class="header-tag">Le jeu de mots entre amis</span>
+        <div class="sound-controls" role="group" aria-label="Bruitages du jeu">
+          <button
+            id="sound-toggle"
+            class="sound-toggle"
+            type="button"
+            aria-pressed="true"
+            title="Couper les bruitages"
+          >
+            <span aria-hidden="true">♪</span> <span id="sound-label">Son activé</span></button
+          ><label class="sr-only" for="sound-volume">Volume des bruitages</label
+          ><input
+            id="sound-volume"
+            type="range"
+            min="0"
+            max="60"
+            step="5"
+            value="25"
+            aria-label="Volume des bruitages"
+          /><output id="sound-volume-label" for="sound-volume">25 %</output>
+        </div>
+      </div>
+    </header>
+    <main>
+      <section id="home">
+        <div id="choice" class="welcome">
+          <div class="letter-stack" aria-hidden="true"><span>W</span><span>C</span><i>✦</i></div>
+          <p class="eyebrow">LES MOTS SONT À VOUS</p>
+          <h1>On fait une partie<span> ?</span></h1>
+          <p class="welcome-caption">Invite ta bande. Trouve les bons mots.</p>
+          <div class="choices">
+            <button class="choice-button create-choice" id="choose-create">
+              <span class="choice-symbol">＋</span><span>Créer une room</span
+              ><span class="choice-arrow">↗</span></button
+            ><button class="choice-button" id="choose-join">
+              <span class="choice-symbol">↳</span><span>Rejoindre une room</span
+              ><span class="choice-arrow">→</span>
+            </button>
+          </div>
+          <span class="player-hint">1–8 joueurs · Sans inscription</span>
+          <div id="recent-rooms" class="recent-rooms" hidden>
+            <h2>Retrouver une room</h2>
+            <div id="recent-list"></div>
+          </div>
+        </div>
+        <section id="setup" class="setup" hidden aria-labelledby="setup-title">
+          <button id="setup-back" class="text-button">← Retour</button>
+          <div class="setup-card">
+            <span id="setup-icon" class="setup-icon" aria-hidden="true">＋</span>
+            <h1 id="setup-title">Créer une room</h1>
+            <form id="nickname-form" hidden>
+              <label for="nickname"
+                >Ton pseudo<input
+                  id="nickname"
+                  name="name"
+                  maxlength="20"
+                  placeholder="Ton pseudo"
+                  required
+                  autocomplete="nickname" /></label
+              ><button class="primary" type="submit">Continuer <span>→</span></button>
+            </form>
+            <div id="identity" class="identity" hidden>
+              <span>Tu joues en tant que <strong id="saved-name"></strong></span
+              ><button id="edit-name" class="text-button" type="button">Modifier</button>
+            </div>
+            <form id="create-form" hidden>
+              <label
+                >Langue du jeu<select name="lang">
+                  <option value="fr">Français</option>
+                  <option value="en">English</option>
+                </select></label
+              ><button class="primary" type="submit">Créer la room <span>↗</span></button>
+            </form>
+            <form id="join-form" hidden>
+              <label
+                >Code de la room<input
+                  class="code-input"
+                  name="code"
+                  placeholder="A1B2C3"
+                  maxlength="6"
+                  minlength="6"
+                  required
+                  autocomplete="off"
+                  spellcheck="false" /></label
+              ><button class="primary" type="submit">Rejoindre la room <span>→</span></button>
+            </form>
+          </div>
+        </section>
+      </section>
+      <section id="room" hidden>
+        <button id="leave" class="text-button">← Quitter la room</button>
+        <div class="room-heading">
+          <div class="eyebrow">LA BANDE EST RÉUNIE</div>
+          <h1>Place aux mots<span class="brand-dot">.</span></h1>
+          <p>
+            Room <button id="copy-code" class="code-chip" title="Copier le code"></button>
+            <span id="room-language"></span>
+            <button id="copy-link" class="share-button" type="button">
+              ↗ Copier le lien de la room
+            </button>
+          </p>
+          <p class="room-lifetime">Conservée 7 jours après la dernière présence.</p>
+        </div>
+        <div class="room-tabs" role="tablist" aria-label="Vue de la room">
+          <button id="tab-play" role="tab" aria-selected="true" aria-controls="panel-play">
+            Jouer</button
+          ><button
+            id="tab-stats"
+            role="tab"
+            aria-selected="false"
+            aria-controls="panel-stats"
+            tabindex="-1"
+          >
+            Classement & historique
+          </button>
+        </div>
+        <div id="panel-play" role="tabpanel" aria-labelledby="tab-play">
+          <div class="room-layout">
+            <aside class="play-card">
+              <h3><span id="sidebar-title">La bande</span> <span id="player-count"></span></h3>
+              <div id="players"></div>
+              <div id="spectators-section" hidden>
+                <h4 class="spectators-title">Spectateurs · prochaine partie</h4>
+                <div id="spectators"></div>
+              </div>
+            </aside>
+            <div class="play-card game-card">
+              <div id="waiting">
+                <span class="waiting-flower">✿</span>
+                <h2 id="waiting-title">Ta room est prête.</h2>
+                <p>Partage le code pour inviter tes amis, ou joue en solo.</p>
+                <button id="start" class="primary">C’est parti ! →</button>
+                <p id="host-note"></p>
+              </div>
+              <div id="game" hidden>
+                <div class="game-status">
+                  <span id="round-label" class="round-badge"></span>
+                  <div
+                    id="turn-timer"
+                    class="turn-timer"
+                    role="timer"
+                    aria-live="off"
+                    aria-label="Temps restant"
+                  >
+                    <span id="seconds-left">15</span><small>sec</small>
+                  </div>
+                </div>
+                <div class="turn-line" aria-live="polite">
+                  <div class="eyebrow turn-current" id="turn-label"></div>
+                  <div class="turn-next" id="next-turn-label"></div>
+                </div>
+                <div class="letter-display" id="letter"></div>
+                <p id="word-prompt" class="word-prompt"></p>
+                <p id="turn-event" class="turn-event" role="status"></p>
+                <p id="spectator-note" class="spectator-note" role="status" hidden></p>
+                <form id="word-form" hidden>
+                  <label class="sr-only" for="word">Ton mot</label>
+                  <div class="word-row">
+                    <input
+                      id="word"
+                      name="word"
+                      placeholder="À toi de trouver…"
+                      maxlength="40"
+                      required
+                      autocomplete="off"
+                    /><button class="primary" type="submit">Jouer →</button>
+                  </div>
+                </form>
+                <button id="end-game" class="text-button" hidden>Terminer la partie</button>
+                <h4>La chaîne de mots</h4>
+                <div id="history" class="history"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <section id="panel-stats" role="tabpanel" aria-labelledby="tab-stats" hidden>
+          <div class="stats-heading">
+            <h2>Le classement de la room</h2>
+            <span id="games-total"></span>
+          </div>
+          <p class="stats-note">
+            Scores des parties terminées. Les parties solo comptent pour les points, les victoires
+            se jouent à plusieurs.
+          </p>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Joueur</th>
+                  <th>Points</th>
+                  <th>Parties</th>
+                  <th>Victoires</th>
+                  <th>Record</th>
+                </tr>
+              </thead>
+              <tbody id="rankings"></tbody>
+            </table>
+          </div>
+          <h2 class="history-title">Les parties précédentes</h2>
+          <div id="past-games"></div>
+        </section>
+      </section>
+    </main>
+    <footer>
+      <span>wordchain.</span
+      ><span>À plusieurs, c’est meilleur. · <a href="/privacy.html">Confidentialité</a></span>
+    </footer>
+    <div id="toast" role="status" aria-live="polite" hidden></div>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/clock.js"></script>
+    <script src="/sounds.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>

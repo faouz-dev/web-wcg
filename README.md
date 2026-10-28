@@ -107,3 +107,15 @@ Les tests isolent leurs données et n'utilisent jamais la variable `DATABASE_URL
 `localhost` donne généralement `127.0.0.1` ou `::1` ; un accès depuis le Wi-Fi local peut donner une IP privée `192.168.x.x`. Ces adresses n’ont pas de pays et ne sont pas envoyées à l’API. Les nouvelles connexions correspondantes portent la mention « Adresse non publique » dans l’admin. Cela ne remet pas en cause la recherche pour les visiteurs publics. Sur Render, régler `TRUST_PROXY=1` et `GEOIP_API_ENABLED=1`, puis tester une nouvelle connexion après redéploiement. Les anciennes connexions sans IP conservée ne peuvent pas être corrigées rétroactivement. L’admin se rafraîchit toutes les 30 secondes et l’enrichissement API reste asynchrone.
 
 Si Render affiche des adresses non publiques pour des visiteurs distants, vérifier dans l’admin les indicateurs « Proxy actif » et « API active ». `IP visiteur indisponible` signifie qu’aucune adresse publique n’a pu être extraite malgré le proxy activé. Les anciens enregistrements ne sont pas corrigibles sans leurs anciennes IP, qui ne sont pas conservées ; les nouvelles connexions utilisent la correction.
+
+## Bruitages
+
+Le jeu synthétise ses sons avec Web Audio (`public/sounds.js`) : début de partie/tour, mot validé/refusé, ticks à 5/3/1 secondes, élimination et fin de partie (avec une courte variation pour une victoire). Aucun fichier à télécharger ni service externe. Les bruitages sont originaux, sans dépendance à une banque audio.
+
+Le navigateur n'initialise le son qu'après un clic, un toucher ou une touche clavier. Le bouton de l'en-tête coupe les bruitages immédiatement ; le volume reste modéré et plafonné à 60 %. Activation et volume sont conservés dans localStorage (`wordchain-audio`). Si Web Audio n'est pas disponible, le jeu reste utilisable sans son. Pas de musique en boucle.
+
+Les ticks ne concernent que le joueur actif, un seul à chaque seuil. Les mises à jour répétées et les reconnexions ne rejouent pas les anciens événements. Une seule séquence joue à la fois et les sons sont arrêtés quand l'onglet est masqué, à la déconnexion ou au départ de la room. La synthèse est testée avec un contexte audio simulé ; l'écoute finale et les particularités des navigateurs mobiles se vérifient dans le navigateur.
+
+## Formatage
+
+Prettier est installé comme dépendance de développement avec une version exacte. `npm run format` formate le projet et `npm run format:check` vérifie son formatage. Les dictionnaires, les données locales, les fichiers d’environnement et les fichiers générés sont exclus via `.prettierignore`.
